@@ -18,6 +18,8 @@ package com.vaadin.flow.server.webcomponent;
 import java.io.Serializable;
 import java.util.Objects;
 
+import com.vaadin.flow.shared.util.SharedUtil;
+
 /**
  * Value object containing information of a web component's property field.
  *
@@ -45,7 +47,7 @@ public final class PropertyData<P extends Serializable> implements Serializable 
      *         default value for the property
      */
     public PropertyData(String name, Class<P> type, boolean readOnly,
-                        P defaultValue) {
+            P defaultValue) {
         Objects.requireNonNull(name, "Parameter 'name' must not be null!");
         Objects.requireNonNull(type, "Parameter 'type' must not be null!");
         this.name = name;
@@ -75,6 +77,14 @@ public final class PropertyData<P extends Serializable> implements Serializable 
         return name;
     }
 
+    /**
+     * Getter for the property name as camelCase.
+     *
+     * @return property name as camelCase
+     */
+    public String getCamelCaseName() {
+        return SharedUtil.dashSeparatedToCamelCase(getName());
+    }
     /**
      * Getter for the property value class type.
      *

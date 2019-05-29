@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import org.apache.commons.io.IOUtils;
 
@@ -31,8 +30,6 @@ import com.vaadin.flow.component.WebComponentExporter;
 import com.vaadin.flow.component.webcomponent.WebComponentConfiguration;
 import com.vaadin.flow.shared.util.SharedUtil;
 
-import elemental.json.Json;
-import elemental.json.JsonObject;
 import elemental.json.JsonValue;
 
 /**
@@ -79,23 +76,22 @@ public class WebComponentGenerator {
      * Generate web component html/JS for given exporter class.
      *
      * @param exporterClass
-     *         web component exporter class, not {@code null}
+     *            web component exporter class, not {@code null}
      * @param frontendURI
-     *         the frontend resources URI, not {@code null}
+     *            the frontend resources URI, not {@code null}
      * @param bowerMode
-     *         {@code true} to generate Polymer2 template, {@code false} to
-     *         generate Polymer3 template
+     *            {@code true} to generate Polymer2 template, {@code false} to
+     *            generate Polymer3 template
      * @return generated web component html/JS to be served to the client
      */
     public static String generateModule(
             Class<? extends WebComponentExporter<? extends Component>> exporterClass,
-            String frontendURI, boolean bowerMode) {
+                    String frontendURI, boolean bowerMode) {
         Objects.requireNonNull(exporterClass);
         Objects.requireNonNull(frontendURI);
 
-        WebComponentConfiguration<? extends Component> config =
-                new WebComponentExporter.WebComponentConfigurationFactory()
-                        .create(exporterClass);
+        WebComponentConfiguration<? extends Component> config = new WebComponentExporter.WebComponentConfigurationFactory()
+                .create(exporterClass);
 
         return generateModule(config, frontendURI, false, bowerMode);
     }
@@ -104,12 +100,12 @@ public class WebComponentGenerator {
      * Generate web component html/JS for given tag and class.
      *
      * @param webComponentConfiguration
-     *         web component class implementation, not {@code null}
+     *            web component class implementation, not {@code null}
      * @param frontendURI
-     *         the frontend resources URI, not {@code null}
+     *            the frontend resources URI, not {@code null}
      * @param bowerMode
-     *         {@code true} to generate Polymer2 template, {@code false} to
-     *         generate Polymer3 template
+     *            {@code true} to generate Polymer2 template, {@code false} to
+     *            generate Polymer3 template
      * @return generated web component html/JS to be served to the client
      */
     public static String generateModule(
@@ -131,9 +127,9 @@ public class WebComponentGenerator {
         Set<PropertyData<?>> propertyDataSet = webComponentConfiguration
                 .getPropertyDataSet();
 
-        Map<String, String> replacements =
-                getReplacementsMap(webComponentConfiguration.getTag(),
-                        propertyDataSet, frontendURI, generateUiImport);
+        Map<String, String> replacements = getReplacementsMap(
+                webComponentConfiguration.getTag(), propertyDataSet,
+                frontendURI, generateUiImport);
 
         String template = getTemplate(bowerMode);
         for (Map.Entry<String, String> replacement : replacements.entrySet()) {
@@ -143,8 +139,7 @@ public class WebComponentGenerator {
         return template;
     }
 
-    static Map<String, String> getReplacementsMap(
-            String tag,
+    static Map<String, String> getReplacementsMap(String tag,
             Set<PropertyData<? extends Serializable>> propertyDataSet,
             String frontendURI, boolean generateUiImport) {
         Map<String, String> replacements = new HashMap<>();
@@ -153,79 +148,101 @@ public class WebComponentGenerator {
         replacements.put("TagCamel", SharedUtil
                 .capitalize(SharedUtil.dashSeparatedToCamelCase(tag)));
 
-        replacements.put("PropertyMethods", getPropertyMethods(
-                propertyDataSet.stream().map(PropertyData::getName)));
-
-        replacements.put("Properties", getPropertyDefinitions(propertyDataSet));
+        replacements.put("PropertyMethods",
+                getPropertyMethods(propertyDataSet));
+        replacements.put("PropertyDefaults",
+                getPropertyDefaults(propertyDataSet));
+        replacements.put("PropertySync", getPropertySync(propertyDataSet));
 
         replacements.put("frontend_resources", frontendURI);
 
         replacements.put("ui_import",
                 generateUiImport
-                        ? "<link rel='import' href='web-component-ui.html'>"
+                ? "<link rel='import' href='web-component-ui.html'>"
                         : "");
 
         return replacements;
     }
 
-    private static String getPropertyDefinitions(
-            Set<PropertyData<?>> properties) {
-        JsonObject props = Json.createObject();
-
+    private static String getPropertyMethods(Set<PropertyData<?>> properties) {
+        StringBuilder setters = new StringBuilder();
         for (PropertyData<?> property : properties) {
-            JsonObject prop = createPropertyDefinition(property);
-            props.put(property.getName(), prop);
+            setters.append(createPropertySetterGetter(property));
         }
-        return props.toJson();
+        return setters.toString();
     }
 
-    private static JsonObject createPropertyDefinition(
-            PropertyData<?> property) {
-        JsonObject prop = Json.createObject();
-
-        prop.put("type", property.getType().getSimpleName());
-
-        if (property.getDefaultValue() != null) {
-            String propertyValue = "value";
-            if (property.getType() == Boolean.class) {
-                prop.put(propertyValue, (Boolean) property.getDefaultValue());
-            } else if (property.getType() == Double.class) {
-                prop.put(propertyValue, (Double) property.getDefaultValue());
-            } else if (property.getType() == Integer.class) {
-                prop.put(propertyValue, (Integer) property.getDefaultValue());
-            } else if (property.getType() == String.class) {
-                prop.put(propertyValue, (String) property.getDefaultValue());
-            } else if (JsonValue.class.isAssignableFrom(property.getType())) {
-                prop.put(propertyValue, (JsonValue) property.getDefaultValue());
-            } else {
-                throw new UnsupportedPropertyTypeException(String.format(
-                        "%s is not a currently supported type for a Property." +
-                                " Please use %s instead.",
-                        property.getType().getSimpleName(),
-                        JsonValue.class.getSimpleName()));
-            }
+    private static String getPropertyDefaults(Set<PropertyData<?>> properties) {
+        StringBuilder setters = new StringBuilder();
+        for (PropertyData<?> property : properties) {
+            setters.append(createPropertyDefault(property));
         }
-        prop.put("observer", getSyncMethod(property.getName()));
-        prop.put("notify", true);
-        prop.put("reflectToAttribute", false);
-
-        return prop;
+        return setters.toString();
     }
 
-    private static String getSyncMethod(String property) {
-        return "_sync_" + SharedUtil.dashSeparatedToCamelCase(property);
+    private static String getPropertySync(Set<PropertyData<?>> properties) {
+        StringBuilder sync = new StringBuilder();
+        for (PropertyData<?> property : properties) {
+            sync.append("this._sync('").append(property.getName())
+                    .append("', this.").append(property.getCamelCaseName())
+            .append(");\n");
+        }
+        return sync.toString();
     }
 
-    private static String getPropertyMethods(Stream<String> properties) {
-        StringBuilder methods = new StringBuilder();
-        properties.forEach(property -> {
-            methods.append(INDENTATION);
-            methods.append(getSyncMethod(property));
-            methods.append("(newValue, oldValue) { ");
-            methods.append("this._sync('").append(property)
-                    .append("', newValue);");
-            methods.append("}\n");
-        });
-        return methods.toString();
+    private static String createPropertyDefault(PropertyData<?> property) {
+
+        if (property.getDefaultValue() == null) {
+            return "";
+        }
+        String value;
+
+        if (property.getType() == Boolean.class) {
+            value = String.valueOf((property.getDefaultValue()));
+        } else if (property.getType() == Double.class) {
+            value = String.valueOf((property.getDefaultValue()));
+        } else if (property.getType() == Integer.class) {
+            value = String.valueOf((property.getDefaultValue()));
+        } else if (property.getType() == String.class) {
+            value = "'" + ((String) property.getDefaultValue()).replaceAll("'",
+                    "\\'") + "'";
+        } else if (JsonValue.class.isAssignableFrom(property.getType())) {
+            value = ((JsonValue) property.getDefaultValue()).toJson();
+            ;
+        } else {
+            throw new UnsupportedPropertyTypeException(String.format(
+                    "%s is not a currently supported type for a Property."
+                            + " Please use %s instead.",
+                            property.getType().getSimpleName(),
+                            JsonValue.class.getSimpleName()));
+        }
+
+        return "this._" + property.getCamelCaseName() + "=" + value + ";\n";
     }
+
+    private static String createPropertySetterGetter(PropertyData<?> property) {
+        // set someProperty(value) {
+        // this._someProperty = value;
+        // this._sync('someProperty',value);
+        // }
+        // get someProperty() {
+        // return this._someProperty;
+        // }
+        StringBuilder builder = new StringBuilder();
+        builder.append("set ").append(property.getCamelCaseName())
+        .append("(value) {").append("\n");
+        builder.append("this._").append(property.getCamelCaseName())
+        .append(" = value;\n");
+        builder.append("this._sync('").append(property.getName())
+        .append("', value);\n");
+        builder.append("}\n");
+
+        builder.append("get ").append(property.getCamelCaseName())
+        .append("() {").append("\n");
+        builder.append("return this._").append(property.getCamelCaseName())
+        .append(";\n");
+        builder.append("}\n");
+        return builder.toString();
+    }
+
 }

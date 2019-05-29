@@ -125,9 +125,13 @@ public class WebComponentModulesGeneratorTest {
 
         // verify
         Assert.assertThat(
-                "Generated module doesn't contain 'age' property definition",
+                "Generated module doesn't contain 'age' property default",
+                content, CoreMatchers.containsString("this._age=1;"));
+
+        Assert.assertThat("Generated module doesn't contain 'age' setter",
                 content,
-                CoreMatchers.containsString("\"age\":{\"type\":\"Integer\""));
+                CoreMatchers.containsString(
+                        "set age(value) {\nthis._age = value;"));
 
         Assert.assertThat(
                 "Generated module doesn't contain polymer-element import",

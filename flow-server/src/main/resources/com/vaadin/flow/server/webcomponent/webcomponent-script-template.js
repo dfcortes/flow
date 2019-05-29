@@ -1,20 +1,25 @@
-  static get is() {
-    return '_TagDash_';
-  }
-
-  static get properties() {
-    return Object.assign({},
-      _Properties_,
-      {
-        _propertyUpdatedFromServer: {
-          type: Object,
-          notify: false,
-          value: {},
-        }
-      });
+class _TagCamel_ extends HTMLElement {
+  constructor() {
+	super();
+	this._propertyUpdatedFromServer = {};
+	this.$ = {};
+	this.initDefaults();
+	var shadow = this.attachShadow( { mode: 'open' } );
+	var style = document.createElement("style");
+    style.innerHTML = `
+      :host {
+        display: inline-block;
+      }
+    `;
+	shadow.appendChild(style);
+	shadow.appendChild(document.createElement("slot"));
   }
 
   _PropertyMethods_
+
+  initDefaults() {
+	  _PropertyDefaults_
+  }
 
   _sync(property, newValue) {
     if (this.$server) {
@@ -34,7 +39,10 @@
   }
 
   connectedCallback() {
-    super.connectedCallback();
+    if (super.connectedCallback) {
+	  super.connectedCallback();
+    }
+
 
     if (_TagCamel_.rootId != null){
         this._connect(_TagCamel_.rootId);
@@ -87,11 +95,7 @@
   }
 
   serverConnected() {
-    Object.keys(_TagCamel_.properties).forEach(prop => {
-      if (prop !== "_propertyUpdatedFromServer") {
-        this._sync(prop, this[prop]);
-      }
-    });
+	_PropertySync_
   }
 }
 
@@ -112,4 +116,4 @@ else {
     });
 }
 
-customElements.define(_TagCamel_.is, _TagCamel_);
+customElements.define('_TagDash_', _TagCamel_);
