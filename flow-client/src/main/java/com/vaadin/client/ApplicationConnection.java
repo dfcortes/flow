@@ -89,7 +89,8 @@ public class ApplicationConnection {
         boolean productionMode = applicationConfiguration.isProductionMode();
         boolean requestTiming = applicationConfiguration.isRequestTiming();
         publishProductionModeJavascriptMethods(appRootPanelName, productionMode,
-                requestTiming);
+                requestTiming,
+                applicationConfiguration.getExportedWebComponents());
         if (!productionMode) {
             String servletVersion = applicationConfiguration
                     .getServletVersion();
@@ -146,9 +147,11 @@ public class ApplicationConnection {
      * @param requestTiming
      *            <code>true</code> if request timing info should be made
      *            available, <code>false</code> otherwise
+     * @param exportedWebComponents
      */
     private native void publishProductionModeJavascriptMethods(
-            String applicationId, boolean productionMode, boolean requestTiming)
+            String applicationId, boolean productionMode, boolean requestTiming,
+            String[] exportedWebComponents)
     /*-{
         var ap = this;
         var client = {};
@@ -162,6 +165,12 @@ public class ApplicationConnection {
         client.poll = $entry(function() {
                 var poller = ap.@ApplicationConnection::registry.@com.vaadin.client.Registry::getPoller()();
                 poller.@com.vaadin.client.communication.Poller::poll()();
+        });
+        client.connectWebComponent = $entry(function(eventData) {
+            var registry = ap.@ApplicationConnection::registry;
+            var sc = registry.@com.vaadin.client.Registry::getServerConnector()();
+            var nodeId = registry.@com.vaadin.client.Registry::getStateTree()().@com.vaadin.client.flow.StateTree::getRootNode()().@com.vaadin.client.flow.StateNode::id;
+            sc.@com.vaadin.client.communication.ServerConnector::sendEventMessage(ILjava/lang/String;Lelemental/json/JsonObject;)(nodeId, 'connect-web-component', eventData);
         });
         if (requestTiming) {
            client.getProfilingData = $entry(function() {
@@ -183,14 +192,14 @@ public class ApplicationConnection {
             var ur = ap.@ApplicationConnection::registry.@com.vaadin.client.Registry::getURIResolver()();
             return ur.@com.vaadin.client.URIResolver::resolveVaadinUri(Ljava/lang/String;)(uriToResolve);
         });
-    
+
         $wnd.Vaadin.Flow.sendEventMessage = $entry(function(nodeId, eventType, eventData) {
             var sc = ap.@ApplicationConnection::registry.@com.vaadin.client.Registry::getServerConnector()();
             sc.@com.vaadin.client.communication.ServerConnector::sendEventMessage(ILjava/lang/String;Lelemental/json/JsonObject;)(nodeId,eventType,eventData);
         });
-    
+
         client.initializing = false;
-    
+        client.exportedWebComponents = exportedWebComponents;
         $wnd.Vaadin.Flow.clients[applicationId] = client;
     }-*/;
 
